@@ -33,11 +33,15 @@ public:
   virtual dynet::expr::Expression CalcLogProb(dynet::expr::Expression & in, dynet::expr::Expression & prior, const Sentence & ctxt, bool train) override;
   virtual dynet::expr::Expression CalcLogProb(dynet::expr::Expression & in, dynet::expr::Expression & prior, const std::vector<Sentence> & ctxt, bool train) override;
 
+  void SetDropout(float dropout);
+
 protected:
   dynet::Parameter p_sm_W_; // Softmax weights
   dynet::Parameter p_sm_b_; // Softmax bias
 
   SoftmaxPtr softmax_;
+
+  float dropout_rate;
 
   dynet::expr::Expression i_sm_W_;
   dynet::expr::Expression i_sm_b_;

@@ -39,6 +39,8 @@ NeuralLM::NeuralLM(const DictPtr & vocab, int ngram_context, int extern_context,
   // Word representations
   p_wr_W_ = model.add_lookup_parameters(vocab->size(), {(unsigned int)wordrep_size_}); 
 
+  dropout_rate = 0.f;
+
   // Create the softmax
   int numberOfEncoder = 2;
   int softmax_input_size = hidden_spec_.nodes + extern_context;
@@ -66,6 +68,8 @@ NeuralLM::NeuralLM(const DictPtr & vocab, int ngram_context, int extern_context,
                        model,att);
   builder_ = cond_builder_;
   p_wr_W_ = model.add_lookup_parameters(vocab->size(), {(unsigned int)wordrep_size_}); 
+
+  dropout_rate = 0.f;
 
   // Create the softmax
   int numberOfEncoder = 2;
@@ -669,7 +673,7 @@ void NeuralLM::Write(std::ostream & out) {
 }
 
 int NeuralLM::GetVocabSize() const { return vocab_->size(); }
-void NeuralLM::SetDropout(float dropout) { builder_->set_dropout(dropout); }
+void NeuralLM::SetDropout(float dropout) { builder_->set_dropout(dropout); softmax_->SetDropout(dropout);dropout_rate = dropout;}
 void NeuralLM::SetAttention(ExternCalculatorPtr att)
 { 
   if(hidden_spec_.type == "gru-cond" || hidden_spec_.type == "lstm-cond") {

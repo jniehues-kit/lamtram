@@ -434,7 +434,9 @@ dynet::expr::Expression ExternAttentional::CreateContext(
   if(hidden_size_) {
     if(state_in.size()) {
       // i_ehid_state_W_ is {hidden_size, state_size}, state_in is {state_size, 1}
-      dynet::expr::Expression i_ehid_spart = i_ehid_state_W_ * *state_in.rbegin();
+      Expression in = *state_in.rbegin();
+      if (dropout_rate) in = dropout(in, dropout_rate);
+      dynet::expr::Expression i_ehid_spart = i_ehid_state_W_ * in;
       i_ehid = affine_transform({i_ehid_hpart_, i_ehid_spart, i_sent_len_});
     } else {
       i_ehid = i_ehid_hpart_;
@@ -500,6 +502,7 @@ EncoderAttentional::EncoderAttentional(
   int enc2dec_out = decoder_->GetNumLayers() * decoder_->GetNumNodes();
   p_enc2dec_W_ = model.add_parameters({(unsigned int)enc2dec_out, (unsigned int)enc2dec_in});
   p_enc2dec_b_ = model.add_parameters({(unsigned int)enc2dec_out});
+  dropout_rate = 0.f;
 }
 
 
@@ -514,7 +517,9 @@ void EncoderAttentional::NewGraph(dynet::ComputationGraph & cg) {
 template <class SentData>
 std::vector<dynet::expr::Expression> EncoderAttentional::GetEncodedState(const SentData & sent_src, bool train, dynet::ComputationGraph & cg) {
   extern_calc_->InitializeSentence(sent_src, train, cg);
-  dynet::expr::Expression i_decin = affine_transform({i_enc2dec_b_, i_enc2dec_W_, extern_calc_->GetState()});
+  Expression in = extern_calc_->GetState();
+  if (dropout_rate) in = dropout(in, dropout_rate);
+  dynet::expr::Expression i_decin = affine_transform({i_enc2dec_b_, i_enc2dec_W_, in});
   // Perform transformation
   vector<dynet::expr::Expression> decoder_in(decoder_->GetNumLayers() * decoder_->GetLayerMultiplier());
   for (int i = 0; i < decoder_->GetNumLayers(); ++i) {
