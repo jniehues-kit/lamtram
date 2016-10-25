@@ -78,6 +78,7 @@ public:
 
     // Setters
     void SetDropout(float dropout) {
+      dropout_rate = dropout;
       for(auto & enc : encoders_) enc->SetDropout(dropout);
     }
 
@@ -88,6 +89,7 @@ protected:
     
     bool use_bias_;
     
+    float dropout_rate;
 
     int attention_context_;
     bool source_word_embedding_in_softmax_;
@@ -216,6 +218,7 @@ public:
     void SetDropout(float dropout) {
       extern_calc_->SetDropout(dropout);
       decoder_->SetDropout(dropout);
+      dropout_rate = dropout;
     }
 
 protected:
@@ -236,6 +239,8 @@ protected:
     // Interned Parameters
     dynet::expr::Expression i_enc2dec_W_;
     dynet::expr::Expression i_enc2dec_b_;
+    
+    float dropout_rate;
 
 private:
     // A pointer to the current computation graph.
