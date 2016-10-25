@@ -173,6 +173,8 @@ protected:
     // Pointer to the softmax
     SoftmaxPtr softmax_;
 
+    float dropout_rate;
+
     // The RNN builder
     BuilderPtr builder_;
     CondBuilderPtr cond_builder_;

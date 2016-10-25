@@ -60,6 +60,9 @@ public:
   virtual int GetInputSize() const { return input_size_; }
   virtual int GetCtxtLen() const { return ctxt_len_; }
 
+    // Setters
+    virtual void SetDropout(float dropout) {};
+
 protected:
   std::string sig_;
   int input_size_;
