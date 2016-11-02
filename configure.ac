@@ -43,6 +43,16 @@ if test "x$cuda_dir" != "x"; then
   DYNET_CPPFLAGS="-I${dynet_dir}/include/ -I${cuda_dir}/include -DHAVE_CUDA -DEIGEN_USE_GPU -DEIGEN_HAS_CUDA_FP16"
   DYNET_LDFLAGS="-L${dynet_dir}/lib/ -lgdynet -ldynetcuda -L${cuda_dir}/lib -lcudart -lcublas"
 fi
+
+# Check if we have CUDA
+AC_ARG_WITH(cuda64,
+	[AC_HELP_STRING([--with-cuda64=DIR], [cuda in DIR])],
+	[cuda_dir="${withval}"], [cuda_dir=''])
+if test "x$cuda_dir" != "x"; then
+  DYNET_CPPFLAGS="-I${dynet_dir}/include/ -I${cuda_dir}/include -DHAVE_CUDA -DEIGEN_USE_GPU -DEIGEN_HAS_CUDA_FP16"
+  DYNET_LDFLAGS="-L${dynet_dir}/lib/ -lgdynet -ldynetcuda -L${cuda_dir}/lib64/ -lcudart -lcublas"
+fi
+
 AC_SUBST(DYNET_CPPFLAGS)
 AC_SUBST(DYNET_LDFLAGS)
 

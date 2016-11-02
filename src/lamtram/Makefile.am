@@ -46,7 +46,9 @@ LIBCPP = \
     eval-measure.cc \
     gru-cond.cc \
     rnn-cond.cc \
-    lstm-cond.cc 
+    lstm-cond.cc \
+    shared-multitask-linear-encoder.cc \
+    shared-multitask-neural-lm.cc
 
 AM_CXXFLAGS = $(BOOST_CPPFLAGS) $(EIGEN_CPPFLAGS) $(DYNET_CPPFLAGS) $(OPENMP_CXXFLAGS) -I$(srcdir)/..
 
