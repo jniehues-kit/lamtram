@@ -1,9 +1,13 @@
 #pragma once
 
 #include <lamtram/sentence.h>
+#include <lamtram/dict-utils.h>
+#include <lamtram/encoder-attentional.h>
+#include <lamtram/multitask-model.h>
 #include <dynet/tensor.h>
 #include <boost/program_options.hpp>
 #include <string>
+#include <lamtram/neural-lm.h>
 
 namespace dynet {
 struct Trainer;
@@ -26,6 +30,12 @@ public:
     void TrainEncDec();
     void TrainEncAtt();
     void TrainEncCls();
+    void CreateSharedModel(std::vector<DictPtr> & vocab_src,
+                            std::vector<DictPtr> & vocab_trg, 
+                            NeuralLMPtr & decoder, 
+                            std::shared_ptr<EncoderAttentional> & encatt, 
+                            std::vector<MultiTaskModelPtr> & mtmodels,
+                            std::shared_ptr<dynet::Model> model);
 
     // Bilingual maximum likelihood training
     template<class ModelType, class OutputType>
@@ -35,10 +45,14 @@ public:
                            const std::vector<float> & train_weights,
                            const std::vector<Sentence> & dev_src,
                            const std::vector<OutputType> & dev_trg,
-                           const dynet::Dict & vocab_src,
-                           const dynet::Dict & vocab_trg,
+                           const std::vector<DictPtr> & vocab_src,
+                           const std::vector<DictPtr> & vocab_trg,
+                           const std::vector <int> & train_src_voc_ids,
+                           const std::vector <int> & train_trg_voc_ids,
+                           const std::vector <MultiTaskModelPtr> & mtmodels,
                            dynet::Model & mod,
                            ModelType & encdec);
+
 
     // Minimum risk training
     template<class ModelType>

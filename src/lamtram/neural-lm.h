@@ -130,7 +130,7 @@ public:
 
     // Reading/writing functions
     static NeuralLM* Read(const DictPtr & vocab, std::istream & in, dynet::Model & model);
-    void Write(std::ostream & out);
+    virtual void Write(std::ostream & out);
 
     // Information functions
     static bool HasSrcVocab() { return false; }
