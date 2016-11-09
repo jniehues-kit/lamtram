@@ -47,6 +47,7 @@ LIBCPP = \
     gru-cond.cc \
     rnn-cond.cc \
     lstm-cond.cc \
+    multitask-encoder-attentional.cc \
     shared-multitask-linear-encoder.cc \
     shared-multitask-neural-lm.cc
 

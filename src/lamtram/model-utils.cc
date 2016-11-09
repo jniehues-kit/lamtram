@@ -4,6 +4,7 @@
 #include <lamtram/encoder-decoder.h>
 #include <lamtram/encoder-attentional.h>
 #include <lamtram/encoder-classifier.h>
+#include <lamtram/multitask-encoder-attentional.h>
 #include <lamtram/neural-lm.h>
 #include <dynet/model.h>
 #include <dynet/dict.h>
@@ -52,6 +53,47 @@ ModelType* ModelUtils::LoadBilingualModel(const std::string & file,
 }
 
 
+// Load a model from a stream
+// Will return a pointer to the model, and reset the passed shared pointers
+// with dynet::Model, and input, output vocabularies (if necessary)
+template <class ModelType>
+ModelType* ModelUtils::LoadMultitaskModel(std::istream & model_in,
+                                          std::shared_ptr<dynet::Model> & mod,
+                                          vector<DictPtr> & vocab_src, vector<DictPtr> & vocab_trg,
+                                          vector<MultiTaskModelPtr> & mtmodels) {
+    int src_voc_size,trg_voc_size;
+    model_in >> src_voc_size >> trg_voc_size;
+    //finish line before reading for dict
+    string s;
+    getline(model_in,s);
+    //model_in >> s;
+    //cout << s << endl;
+    for(int i = 0; i < src_voc_size;i++) {
+        vocab_src.push_back(std::shared_ptr<Dict>(ReadDict(model_in)));
+    }
+    for(int i = 0; i < trg_voc_size;i++) {
+        vocab_trg.push_back(std::shared_ptr<Dict>(ReadDict(model_in)));
+    }
+    mod.reset(new dynet::Model);
+    ModelType* ret = ModelType::Read(vocab_src, vocab_trg, model_in, mtmodels,*mod);
+    ModelUtils::ReadModelText(model_in, *mod);
+    return ret;
+}
+
+// Load a model from a text file
+// Will return a pointer to the model, and reset the passed shared pointers
+// with dynet::Model, and input, output vocabularies (if necessary)
+template <class ModelType>
+ModelType* ModelUtils::LoadMultitaskModel(const std::string & file,
+                                          std::shared_ptr<dynet::Model> & mod,
+                                          vector<DictPtr> & vocab_src, vector<DictPtr> & vocab_trg,
+                                          vector<MultiTaskModelPtr> & mtmodels) {
+    ifstream model_in(file);
+    if(!model_in) THROW_ERROR("Could not open model file " << file);
+    return ModelUtils::LoadMultitaskModel<ModelType>(model_in, mod, vocab_src, vocab_trg,mtmodels);
+}
+
+
 
 // Load a model from a stream
 // Will return a pointer to the model, and reset the passed shared pointers
@@ -80,6 +122,20 @@ ModelType* ModelUtils::LoadMonolingualModel(const std::string & file,
 }
 
 // Instantiate LoadModel
+template
+MultiTaskEncoderAttentional* ModelUtils::LoadMultitaskModel<MultiTaskEncoderAttentional>(std::istream & model_in,
+                                                              std::shared_ptr<dynet::Model> & mod,
+                                                              vector<DictPtr> & vocab_src, vector<DictPtr> & vocab_trg,
+                                                              std::vector<MultiTaskModelPtr> & mtmodels);
+
+template
+MultiTaskEncoderAttentional* ModelUtils::LoadMultitaskModel<MultiTaskEncoderAttentional>(const std::string & infile,
+                                                              std::shared_ptr<dynet::Model> & mod,
+                                                              vector<DictPtr> & vocab_src, vector<DictPtr> & vocab_trg,
+                                                              std::vector<MultiTaskModelPtr> & mtmodels);
+
+
+
 template
 EncoderDecoder* ModelUtils::LoadBilingualModel<EncoderDecoder>(std::istream & model_in,
                                                       std::shared_ptr<dynet::Model> & mod,

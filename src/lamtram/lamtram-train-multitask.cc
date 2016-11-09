@@ -37,10 +37,10 @@ int LamtramTrainMultitask::main(int argc, char** argv) {
     ("dev_trg", po::value<string>()->default_value(""), "Development files")
     ("train_src", po::value<string>()->default_value(""), "Training source files for TMs, possibly separated by pipes")
     ("dev_src", po::value<string>()->default_value(""), "Development source file for TMs")
-    ("train_task", po::value<string>()->default_value(""), "Task index for training files")
-    ("dev_task", po::value<string>()->default_value(""), "Task index for development files")
     ("voc_src", po::value<string>()->default_value(""), "Source voc used for every training file")
     ("voc_trg", po::value<string>()->default_value(""), "Source voc used for every training file")
+    ("dev_voc_src", po::value<string>()->default_value(""), "Source voc used for every development file")
+    ("dev_voc_trg", po::value<string>()->default_value(""), "Source voc used for every development file")
     ("model_out", po::value<string>()->default_value(""), "File to write the model to")
     ("model_type", po::value<string>()->default_value("shared"), "Model type (Attentional Model shared)")
     ("layer_size", po::value<int>()->default_value(512), "The default size of all hidden layers (word rep, hidden state, mlp attention, mlp softmax) if not specified otherwise")
@@ -118,7 +118,10 @@ int LamtramTrainMultitask::main(int argc, char** argv) {
   std::vector<std::string> voc_trg;
   try { voc_trg = TokenizeWildcarded(vm_["voc_trg"].as<string>(), wildcards_, "|"); } catch(std::exception & e) { }
   for(int i = 0; i < voc_trg.size(); i++) voc_trg_.push_back(atoi(voc_trg[i].c_str()));
-  try { dev_file_trg_ = vm_["dev_trg"].as<string>(); } catch(std::exception & e) { }
+  try { dev_files_trg_ = TokenizeWildcarded(vm_["dev_trg"].as<string>(), wildcards_, "|"); } catch(std::exception & e) { }
+  std::vector<std::string> dev_voc_trg;
+  try { dev_voc_trg = TokenizeWildcarded(vm_["dev_voc_trg"].as<string>(), wildcards_, "|"); } catch(std::exception & e) { }
+  for(int i = 0; i < voc_trg.size(); i++) dev_voc_trg_.push_back(atoi(dev_voc_trg[i].c_str()));
   try { model_out_file_ = vm_["model_out"].as<string>(); } catch(std::exception & e) { }
   if(!train_files_trg_.size())
     THROW_ERROR("Must specify a training file with --train_trg");
@@ -130,13 +133,16 @@ int LamtramTrainMultitask::main(int argc, char** argv) {
   std::vector<std::string> voc_src;
   try { voc_src = TokenizeWildcarded(vm_["voc_src"].as<string>(), wildcards_, "|"); } catch(std::exception & e) { }
   for(int i = 0; i < voc_src.size(); i++) voc_src_.push_back(atoi(voc_src[i].c_str()));
-  try { dev_file_src_ = vm_["dev_src"].as<string>(); } catch(std::exception & e) { }
+  try { dev_files_src_ = TokenizeWildcarded(vm_["dev_src"].as<string>(), wildcards_, "|"); } catch(std::exception & e) { }
+  std::vector<std::string> dev_voc_src;
+  try { dev_voc_src = TokenizeWildcarded(vm_["dev_voc_src"].as<string>(), wildcards_, "|"); } catch(std::exception & e) { }
+  for(int i = 0; i < voc_src.size(); i++) dev_voc_src_.push_back(atoi(dev_voc_src[i].c_str()));
   try {
     string train_weights_string = vm_["train_weights"].as<string>();
     if (train_weights_string != "")
       train_files_weights_ = TokenizeWildcarded(vm_["train_weights"].as<string>(), wildcards_, "|");
   } catch(std::exception & e) { }
-  if(use_src && ((!train_files_src_.size()) || (dev_file_trg_.size() && !dev_file_src_.size())))
+  if(use_src && ((!train_files_src_.size()) || (dev_files_trg_.size() && !dev_files_src_.size())))
     THROW_ERROR("The specified model requires a source file to train, specify source files using train_src.");
 
   // Save some variables
@@ -196,90 +202,70 @@ inline size_t CalcSize(const Sentence & src, int trg) {
 }
 
 template <class OutputType>
-inline void CreateMinibatches(const std::vector<Sentence> & train_src,
-                              const std::vector<OutputType> & train_trg,
-                              const std::vector<OutputType> & train_cache,
-                              const std::vector<float> & train_weights,
+inline void CreateMinibatches(const std::vector<std::vector<Sentence> >& train_src,
+                              const std::vector<std::vector<OutputType> >& train_trg,
+                              const std::vector<std::vector<OutputType> >& train_cache,
+                              const std::vector<std::vector<float> > & train_weights,
                               const std::vector <int> & train_src_voc_ids,
                               const std::vector <int> & train_trg_voc_ids,
                               int max_size,
                               std::vector<std::vector<Sentence> > & train_src_minibatch,
                               std::vector<std::vector<OutputType> > & train_trg_minibatch,
                               std::vector<std::vector<OutputType> > & train_cache_minibatch,
-                              std::vector<std::vector<float> > & train_weights_minibatch) {
-  std::vector<int> train_ids(train_trg.size());
-  std::iota(train_ids.begin(), train_ids.end(), 0);
-  if(max_size > 1)
-    sort(train_ids.begin(), train_ids.end(), DoubleLength<OutputType>(train_src, train_trg));
-  std::vector<Sentence> train_src_next;
-  std::vector<OutputType> train_trg_next, train_cache_next;
-  std::vector<float> train_weights_next;
-  size_t max_len = 0;
-  for(size_t i = 0; i < train_ids.size(); i++) {
-    max_len = max(max_len, CalcSize(train_src[train_ids[i]], train_trg[train_ids[i]]));
-    train_src_next.push_back(train_src[train_ids[i]]);
-    train_trg_next.push_back(train_trg[train_ids[i]]);
-    if(train_cache.size())
-      train_cache_next.push_back(train_cache[train_ids[i]]);
-    if(train_weights.size())
-      train_weights_next.push_back(train_weights[train_ids[i]]);
-    if((train_trg_next.size()+1) * max_len > max_size) {
+                              std::vector<std::vector<float> > & train_weights_minibatch,
+                              std::vector <int> & train_src_voc_ids_minibatch,
+                              std::vector <int> & train_trg_voc_ids_minibatch
+                              ) {
+  
+  for(size_t j = 0; j < train_trg.size(); j++) {
+    std::vector<int> train_ids(train_trg[j].size());
+    std::iota(train_ids.begin(), train_ids.end(), 0);
+    if(max_size > 1)
+      sort(train_ids.begin(), train_ids.end(), DoubleLength<OutputType>(train_src[j], train_trg[j]));
+    std::vector<Sentence> train_src_next;
+    std::vector<OutputType> train_trg_next, train_cache_next;
+    std::vector<float> train_weights_next;
+    size_t max_len = 0;
+    for(size_t i = 0; i < train_ids.size(); i++) {
+      max_len = max(max_len, CalcSize(train_src[j][train_ids[i]], train_trg[j][train_ids[i]]));
+      train_src_next.push_back(train_src[j][train_ids[i]]);
+      train_trg_next.push_back(train_trg[j][train_ids[i]]);
+      if(train_cache.size())
+        train_cache_next.push_back(train_cache[j][train_ids[i]]);
+      if(train_weights.size())
+        train_weights_next.push_back(train_weights[j][train_ids[i]]);
+      if((train_trg_next.size()+1) * max_len > max_size) {
+        train_src_minibatch.push_back(train_src_next);
+        train_src_next.clear();
+        train_trg_minibatch.push_back(train_trg_next);
+        train_trg_next.clear();
+        train_src_voc_ids_minibatch.push_back(train_src_voc_ids[j]);
+        train_trg_voc_ids_minibatch.push_back(train_trg_voc_ids[j]);
+        if(train_cache.size()) {
+          train_cache_minibatch.push_back(train_cache_next);
+          train_cache_next.clear();
+        }
+        if(train_weights.size()) {
+          train_weights_minibatch.push_back(train_weights_next);
+          train_weights_next.clear();
+        }
+        max_len = 0;
+      }
+    }
+    if(train_trg_next.size()) {
       train_src_minibatch.push_back(train_src_next);
-      train_src_next.clear();
       train_trg_minibatch.push_back(train_trg_next);
-      train_trg_next.clear();
-      if(train_cache.size()) {
-        train_cache_minibatch.push_back(train_cache_next);
-        train_cache_next.clear();
-      }
-      if(train_weights.size()) {
-        train_weights_minibatch.push_back(train_weights_next);
-        train_weights_next.clear();
-      }
-      max_len = 0;
+      train_src_voc_ids_minibatch.push_back(train_src_voc_ids[j]);
+      train_trg_voc_ids_minibatch.push_back(train_trg_voc_ids[j]);
     }
+    if(train_cache_next.size()) train_cache_minibatch.push_back(train_cache_next);
+    if(train_weights_next.size()) train_weights_minibatch.push_back(train_weights_next);
   }
-  if(train_trg_next.size()) {
-    train_src_minibatch.push_back(train_src_next);
-    train_trg_minibatch.push_back(train_trg_next);
-  }
-  if(train_cache_next.size()) train_cache_minibatch.push_back(train_cache_next);
-  if(train_weights_next.size()) train_weights_minibatch.push_back(train_weights_next);
-}
-
-inline void CreateMinibatches(const std::vector<Sentence> & train_trg,
-                              const std::vector<Sentence> & train_cache,
-                              int max_size,
-                              std::vector<std::vector<Sentence> > & train_trg_minibatch,
-                              std::vector<std::vector<Sentence> > & train_cache_minibatch) {
-  std::vector<int> train_ids(train_trg.size());
-  std::iota(train_ids.begin(), train_ids.end(), 0);
-  if(max_size > 1)
-    sort(train_ids.begin(), train_ids.end(), SingleLength(train_trg));
-  std::vector<Sentence> train_trg_next, train_cache_next;
-  size_t first_size = 0;
-  for(size_t i = 0; i < train_ids.size(); i++) {
-    if(train_trg_next.size() == 0)
-      first_size = train_trg[train_ids[i]].size();
-    train_trg_next.push_back(train_trg[train_ids[i]]);
-    if(train_cache.size())
-      train_cache_next.push_back(train_cache[train_ids[i]]);
-    if((train_trg_next.size()+1) * first_size > max_size) {
-      train_trg_minibatch.push_back(train_trg_next);
-      train_trg_next.clear();
-      if(train_cache.size()) {
-        train_cache_minibatch.push_back(train_cache_next);
-        train_cache_next.clear();
-      }
-    }
-  }
-  if(train_trg_next.size())   train_trg_minibatch.push_back(train_trg_next);
-  if(train_cache_next.size()) train_cache_minibatch.push_back(train_cache_next);
 }
 
 
 
-void LamtramTrainMultitask::CreateSharedModel(vector<DictPtr> & vocab_src,vector<DictPtr> & vocab_trg,NeuralLMPtr & decoder, std::shared_ptr<EncoderAttentional> & encatt,   vector<std::shared_ptr<MultiTaskModel> > & mtmodels, std::shared_ptr<dynet::Model> model) {
+void LamtramTrainMultitask::CreateSharedModel(vector<DictPtr> & vocab_src,vector<DictPtr> & vocab_trg,NeuralLMPtr & decoder, std::shared_ptr<MultiTaskEncoderAttentional> & encatt,   vector<std::shared_ptr<MultiTaskModel> > & mtmodels, std::shared_ptr<dynet::Model> model) {
     vector<LinearEncoderPtr> encoders;
     vector<string> encoder_types;
     boost::algorithm::split(encoder_types, vm_["encoder_types"].as<string>(), boost::is_any_of("|"));
@@ -296,11 +282,11 @@ void LamtramTrainMultitask::CreateSharedModel(vector<DictPtr> & vocab_src,vector
     int wordrep = vm_["wordrep"].as<int>();
     if(wordrep <= 0) wordrep = GlobalVars::layer_size;
     vector<int> source_vocab_sizes;
-    for(int i = 0; vocab_src.size(); i++) {
+    for(int i = 0; i < vocab_src.size(); i++) {
       source_vocab_sizes.push_back(vocab_src[i]->size());
       assert(vocab_src[0]->get_unk_id() == vocab_src[i]->get_unk_id());
     }
-    for(int i = 0; vocab_trg.size(); i++) {
+    for(int i = 0; i < vocab_trg.size(); i++) {
       assert(vocab_trg[0]->get_unk_id() == vocab_trg[i]->get_unk_id());
     }
     for(auto & spec : encoder_types) {
@@ -313,8 +299,8 @@ void LamtramTrainMultitask::CreateSharedModel(vector<DictPtr> & vocab_src,vector
       cerr << "Attention_lex not supported in multi-task" << endl;
       exit(-1);
     }
-    ExternAttentionalPtr extatt(new ExternAttentional(encoders, vm_["attention_type"].as<string>(), vm_["attention_hist"].as<string>(), dec_layer_spec.nodes, vm_["attention_lex"].as<string>(), vocab_src[0], vocab_trg[0], 
-    vm_["attention_context"].as<int>(), vm_["source_word_embedding_in_softmax"].as<bool>(), vm_["source_word_embedding_in_softmax_context"].as<int>(),*model));
+    MultiTaskExternAttentionalPtr extatt(new MultiTaskExternAttentional(encoders, vm_["attention_type"].as<string>(), vm_["attention_hist"].as<string>(), dec_layer_spec.nodes, vm_["attention_lex"].as<string>(), vocab_src, vocab_trg, 
+    vm_["attention_context"].as<int>(), vm_["source_word_embedding_in_softmax"].as<bool>(), vm_["source_word_embedding_in_softmax_context"].as<int>(),SharedMultiTaskLinearEncoder::ModelID(),*model));
     if(dec_layer_spec.type == "gru-cond" || dec_layer_spec.type == "lstm-cond") {
       ExternCalculatorPtr p = extatt;
       SharedMultiTaskNeuralLMPtr d(new SharedMultiTaskNeuralLM(vocab_trg, context_, dec_layer_spec.nodes, vm_["attention_feed"].as<bool>(), vm_["wordrep"].as<int>(), dec_layer_spec, vocab_trg[0]->get_unk_id(), softmax_sig_, vm_["word_embedding_in_softmax"].as<bool>(),
@@ -327,7 +313,7 @@ void LamtramTrainMultitask::CreateSharedModel(vector<DictPtr> & vocab_src,vector
       decoder.reset(d.get());
       mtmodels.push_back(d);
     }
-    encatt.reset(new EncoderAttentional(extatt, decoder, *model));
+    encatt.reset(new MultiTaskEncoderAttentional(extatt, decoder,SharedMultiTaskNeuralLM::ModelID(), *model));
 
 }
 
@@ -336,16 +322,14 @@ void LamtramTrainMultitask::TrainEncAtt() {
   // dynet::Dict
   vector<DictPtr> vocab_trg, vocab_src;
   std::shared_ptr<dynet::Model> model;
-  std::shared_ptr<EncoderAttentional> encatt;
+  std::shared_ptr<MultiTaskEncoderAttentional> encatt;
   vector<MultiTaskModelPtr> mtmodels;
   NeuralLMPtr decoder;
   
   
   if(model_in_file_.size()) {
-    cerr << "TO DO!!!" << endl;
-    exit(-1);
-    //encatt.reset(ModelUtils::LoadBilingualModel<EncoderAttentional>(model_in_file_, model, vocab_src, vocab_trg));
-    //decoder = encatt->GetDecoderPtr();
+    encatt.reset(ModelUtils::LoadMultitaskModel<MultiTaskEncoderAttentional>(model_in_file_, model, vocab_src, vocab_trg,mtmodels));
+    decoder = encatt->GetDecoderPtr();
   } else {
     //vocab_src.reset(CreateNewDict());
     //vocab_trg.reset(CreateNewDict());
@@ -353,35 +337,54 @@ void LamtramTrainMultitask::TrainEncAtt() {
   }
 
   // Read the training file
-  vector<Sentence> train_trg, dev_trg, train_src, dev_src, train_cache_ids;
-  vector<int> train_trg_ids, train_src_ids;
-  vector<float> train_weights;
-  vector<int> train_trg_voc_ids, train_src_voc_ids;
+  vector<vector<Sentence> > train_trg,train_src, train_cache_ids;
+  vector<vector<Sentence> > dev_trg, dev_src;
+  vector<vector<float> > train_weights;
+  //vector<int> train_trg_voc_ids, train_src_voc_ids;
   for(size_t i = 0; i < train_files_trg_.size(); i++) {
     if(voc_trg_[i] >= vocab_trg.size()) {
       for(int j = vocab_trg.size(); j <= voc_trg_[i]; j++) {vocab_trg.push_back(DictPtr(CreateNewDict()));};
     }
-    LoadFile(train_files_trg_[i], true, *(vocab_trg[voc_trg_[i]]), train_trg);
-    train_trg_ids.resize(train_trg.size(), i);
-    train_trg_voc_ids.resize(train_trg.size(),voc_trg_[i]);
+    vector<Sentence> train;
+    LoadFile(train_files_trg_[i], true, *(vocab_trg[voc_trg_[i]]),train);
+    train_trg.push_back(train);
   }
   for(size_t i = 0; i < train_files_src_.size(); i++) {
     if(voc_src_[i] >= vocab_src.size()) {
       for(int j = vocab_src.size(); j <= voc_src_[i]; j++) {vocab_src.push_back(DictPtr(CreateNewDict()));};
     }
-    LoadFile(train_files_src_[i], false, *(vocab_src[voc_src_[i]]), train_src);
-    train_src_ids.resize(train_src.size(), i);
-    train_src_voc_ids.resize(train_src.size(),voc_src_[i]);
+    vector<Sentence> train;
+    LoadFile(train_files_src_[i], false, *(vocab_src[voc_src_[i]]), train);
+    train_src.push_back(train);
   }
   for (int i = 0; i < vocab_trg.size(); i++) 
     if(!vocab_trg[i]->is_frozen()) { vocab_trg[i]->freeze(); vocab_trg[i]->set_unk("<unk>"); }
   for (int i = 0; i < vocab_src.size(); i++) 
     if(!vocab_src[i]->is_frozen()) { vocab_src[i]->freeze(); vocab_src[i]->set_unk("<unk>"); }
-  if(dev_file_trg_.size()) LoadFile(dev_file_trg_, true, *(vocab_trg[0]), dev_trg);
-  if(dev_file_src_.size()) LoadFile(dev_file_src_, false, *(vocab_src[0]), dev_src);
-  for(size_t i = 0; i < train_files_weights_.size(); i++)
-    LoadWeights(train_files_weights_[i], train_weights);
-  if(eval_every_ == -1) eval_every_ = train_trg.size();
+  if(dev_files_trg_.size())  {
+    for(size_t i = 0; i < dev_files_trg_.size(); i++) {
+      vector<Sentence> dev;
+      LoadFile(dev_files_trg_[i], true, *(vocab_trg[0]), dev);
+      dev_trg.push_back(dev);
+    }
+  }
+  if(dev_files_src_.size()) {
+    for(size_t i = 0; i < dev_files_src_.size(); i++) {
+      vector<Sentence> dev;
+      LoadFile(dev_files_src_[i], false, *(vocab_src[0]), dev);
+      dev_src.push_back(dev);
+    }
+  }
+  for(size_t i = 0; i < train_files_weights_.size(); i++) {
+    vector<float> train_w;
+    LoadWeights(train_files_weights_[i], train_w);
+    train_weights.push_back(train_w);
+  }
+  int train_trg_size = 0;
+  for(int i = 0; i < train_trg.size(); i++) {
+    train_trg_size += train_trg[i].size();
+  }
+  if(eval_every_ == -1) eval_every_ = train_trg_size;
 
   cout << "Target voc sizes:" << endl;
   for (int i = 0; i < vocab_trg.size(); i++) cout << i << ": " << vocab_trg[i]->size() << endl;
@@ -403,7 +406,7 @@ void LamtramTrainMultitask::TrainEncAtt() {
     // If necessary, cache the softmax -> no caching supported !!!!
     //decoder->GetSoftmax().Cache(train_trg, train_trg_ids, train_cache_ids);
     BilingualTraining(train_src, train_trg, train_cache_ids, train_weights, dev_src, dev_trg,
-                      vocab_src, vocab_trg, train_src_voc_ids, train_trg_voc_ids, mtmodels, *model, *encatt);
+                      vocab_src, vocab_trg, mtmodels, *model, *encatt);
   } else if(crit == "minrisk") {
     // Get the evaluator
     //std::shared_ptr<EvalMeasure> eval(EvalMeasureLoader::CreateMeasureFromString(vm_["eval_meas"].as<string>(), *vocab_trg));
@@ -417,16 +420,14 @@ void LamtramTrainMultitask::TrainEncAtt() {
 
 
 template<class ModelType, class OutputType>
-void LamtramTrainMultitask::BilingualTraining(const vector<Sentence> & train_src,
-                                     const vector<OutputType> & train_trg,
-                                     const vector<OutputType> & train_cache,
-                                     const vector<float> & train_weights,
-                                     const vector<Sentence> & dev_src,
-                                     const vector<OutputType> & dev_trg,
+void LamtramTrainMultitask::BilingualTraining(const vector<vector<Sentence> > & train_src,
+                                     const vector<vector<OutputType> >& train_trg,
+                                     const vector<vector<OutputType> >& train_cache,
+                                     const vector<vector<float> > & train_weights,
+                                     const vector<vector<Sentence> > & dev_src,
+                                     const vector<vector<OutputType> > & dev_trg,
                                      const vector<DictPtr> &  vocab_src,
                                      const vector <DictPtr> & vocab_trg,
-                                     const vector <int> & train_src_voc_ids,
-                                     const vector <int> & train_trg_voc_ids,
                                      const vector<MultiTaskModelPtr> & mtmodels,
                                      dynet::Model & model,
                                      ModelType & encdec) {
@@ -434,17 +435,25 @@ void LamtramTrainMultitask::BilingualTraining(const vector<Sentence> & train_src
   // Sanity checks
   assert(train_src.size() == train_trg.size());
   assert(!train_weights.size() || train_weights.size() == train_trg.size());
+  for(int i = 0; i < train_src.size(); i++) {
+    assert(train_src[i].size() == train_trg[i].size());
+    assert(!train_weights.size() || train_weights[i].size() == train_trg[i].size());
+  }
   assert(dev_src.size() == dev_trg.size());
-
+  for(int i = 0; i < dev_src.size(); i++) {
+    assert(dev_src[i].size() == dev_trg[i].size());
+  }
   // Create minibatches
   vector<vector<Sentence> > train_src_minibatch, dev_src_minibatch;
   vector<vector<OutputType> > train_trg_minibatch, train_cache_minibatch, dev_trg_minibatch, dev_cache_minibatch;
   vector<vector<float> > train_weights_minibatch, dev_weights_minibatch;
   vector<int> train_src_voc_ids_minibatch, train_trg_voc_ids_minibatch;
-  vector<float> dev_weights; // For now, use empty vector to indicate uniform weights for dev set
-  vector<Sentence> empty_minibatch;
-  std::vector<OutputType> empty_cache;
-  CreateMinibatches(train_src, train_trg, train_cache, train_weights, train_src_voc_ids, train_trg_voc_ids, vm_["minibatch_size"].as<int>(), train_src_minibatch, train_trg_minibatch, train_cache_minibatch, train_weights_minibatch);
+  vector<int> dev_src_voc_ids_minibatch, dev_trg_voc_ids_minibatch;
+  vector<vector<float> > dev_weights; // For now, use empty vector to indicate uniform weights for dev set
+  vector<std::vector<OutputType> >empty_cache2;
+  vector<OutputType> empty_cache;
+  CreateMinibatches(train_src, train_trg, train_cache, train_weights, voc_src_, voc_trg_, vm_["minibatch_size"].as<int>(), train_src_minibatch, train_trg_minibatch, train_cache_minibatch, train_weights_minibatch,train_src_voc_ids_minibatch, train_trg_voc_ids_minibatch);
+  CreateMinibatches(dev_src, dev_trg, empty_cache2, dev_weights, dev_voc_src_, dev_voc_trg_, 1, dev_src_minibatch, dev_trg_minibatch, dev_cache_minibatch, dev_weights_minibatch,dev_src_voc_ids_minibatch, dev_trg_voc_ids_minibatch);
   // todo CreateMinibatches(dev_src, dev_trg, empty_cache, dev_weights, 1, dev_src_minibatch, dev_trg_minibatch, dev_cache_minibatch, dev_weights_minibatch);
 
   TrainerPtr trainer = GetTrainer(vm_["trainer"].as<string>(), vm_["learning_rate"].as<float>(), model);
@@ -519,6 +528,7 @@ void LamtramTrainMultitask::BilingualTraining(const vector<Sentence> & train_src
       encdec.SetDropout(0.f);
       for(int i : boost::irange(0, (int)dev_src_minibatch.size())) {
         dynet::ComputationGraph cg;
+        for(int j = 0; j < mtmodels.size(); j++) {mtmodels[j]->SetVocabulary(dev_src_voc_ids_minibatch[i],dev_trg_voc_ids_minibatch[i]);};
         encdec.NewGraph(cg);
         // encdec.BuildSentGraph(dev_src[i], dev_trg[i], empty_cache, false, cg, dev_ll);
         dynet::expr::Expression loss_exp = encdec.BuildSentGraph(dev_src_minibatch[i], dev_trg_minibatch[i], empty_cache, nullptr, 0.f, false, cg, dev_ll);

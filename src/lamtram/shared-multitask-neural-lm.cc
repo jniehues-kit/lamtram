@@ -82,16 +82,16 @@ if(!getline(in, line))
     THROW_ERROR("Premature end of model file when expecting Neural LM");
   istringstream iss(line);
   iss >> version_id;
-  if(version_id == "sharedmulti_005") {
+  if(version_id == "sharedmultinlm_005") {
     iss >> voc_sizes >> ngram_context >> extern_context >> extern_feed >> wordrep_size >> hidden_spec >> unk_id >> softmax_sig;
-  }else if(version_id == "sharedmulti_006") {
+  }else if(version_id == "sharedmultinlm_006") {
     iss >> voc_sizes >> ngram_context >> extern_context >> extern_feed >> wordrep_size >> hidden_spec >> unk_id >> softmax_sig >> word_embedding_in_softmax;
-  }else if(version_id == "sharedmulti_007") {
+  }else if(version_id == "sharedmultinlm_007") {
     iss >> voc_sizes >> ngram_context >> extern_context >> extern_feed >> wordrep_size >> hidden_spec >> unk_id >> softmax_sig >> word_embedding_in_softmax >> intermediate_att;
-  }else if(version_id == "sharedmulti_008") {
+  }else if(version_id == "sharedmultinlm_008") {
     iss >> voc_sizes >> ngram_context >> extern_context >> extern_feed >> wordrep_size >> hidden_spec >> unk_id >> softmax_sig >> word_embedding_in_softmax >> intermediate_att >> attention_context >> source_word_embedding_in_softmax >> source_word_embedding_in_softmax_context;
   } else {
-    THROW_ERROR("Expecting a Neural LM of version nlm_005, but got something different:" << endl << line);
+    THROW_ERROR("Expecting a Neural LM of version sharedmultinlm_008, but got something different:" << endl << line);
   }
   vector<string> v = Tokenize(voc_sizes,"|");
   for(int i = 0; i < v.size(); i++) {assert(atoi(v[i].c_str()) == vocabs[i]->size());};
@@ -109,7 +109,7 @@ void SharedMultiTaskNeuralLM::Write(std::ostream & out) {
   out << "sharedmultinlm_008 ";
   out << vocabs_[0]->size();
   for (int i = 1; i < vocabs_.size(); i++) {
-    out << "|" << vocabs_[i]->size() << endl;
+    out << "|" << vocabs_[i]->size();
   }
   out << " " << ngram_context_ << " " << extern_context_ << " " << extern_feed_ << " " << wordrep_size_ << " " << hidden_spec_ << " " << unk_id_ << " " << softmax_->GetSig() << " " << word_embedding_in_softmax_ << " " << intermediate_att_ << " " << attention_context_ << " " << source_word_embedding_in_softmax_ << " " << source_word_embedding_in_softmax_context_ << " " << endl;
 }

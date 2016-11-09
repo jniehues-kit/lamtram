@@ -1,6 +1,7 @@
 #pragma once
 
 #include <lamtram/dict-utils.h>
+#include <lamtram/multitask-model.h>
 #include <dynet/dynet.h>
 #include <iostream>
 #include <memory>
@@ -15,6 +16,24 @@ class ModelUtils {
 public:
     static void WriteModelText(std::ostream & out, const dynet::Model & mod);
     static void ReadModelText(std::istream & in, dynet::Model & mod);
+
+
+    // Load a model from a stream
+    // Will return a pointer to the model, and reset the passed shared pointers
+    // with dynet::Model, and input, output vocabularies (if necessary)
+    template <class ModelType>
+    static ModelType* LoadMultitaskModel(std::istream & in,
+                                std::shared_ptr<dynet::Model> & mod,
+                                std::vector<DictPtr> & vocab_src, std::vector<DictPtr> & vocab_trg,
+                                std::vector<MultiTaskModelPtr> & mtmodel);
+
+    // Load a model from a text file
+    template <class ModelType>
+    static ModelType* LoadMultitaskModel(const std::string & infile,
+                                std::shared_ptr<dynet::Model> & mod,
+                                std::vector<DictPtr> & vocab_src, std::vector<DictPtr> & vocab_trg,
+                                std::vector<MultiTaskModelPtr> & mtmodels);
+
 
     // Load a model from a stream
     // Will return a pointer to the model, and reset the passed shared pointers

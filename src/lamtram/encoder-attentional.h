@@ -68,7 +68,7 @@ public:
 
     // Reading/writing functions
     static ExternAttentional* Read(std::istream & in, const DictPtr & vocab_src, const DictPtr & vocab_trg, dynet::Model & model);
-    void Write(std::ostream & out);
+    virtual void Write(std::ostream & out);
 
 
 
@@ -181,7 +181,7 @@ public:
 
     // Reading/writing functions
     static EncoderAttentional* Read(const DictPtr & vocab_src, const DictPtr & vocab_trg, std::istream & in, dynet::Model & model);
-    void Write(std::ostream & out);
+    virtual void Write(std::ostream & out);
 
     // Index the parameters in a computation graph
     void NewGraph(dynet::ComputationGraph & cg);
