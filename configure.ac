@@ -24,6 +24,9 @@ AC_PROG_CC
 
 AC_LANG_CPLUSPLUS
 
+LT_INIT()
+AC_PROG_RANLIB
+
 # Check for DYNET
 AC_ARG_WITH(dynet,
 	[AC_HELP_STRING([--with-dynet=DIR], [dynet in DIR])],

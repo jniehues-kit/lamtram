@@ -61,7 +61,7 @@ public:
 
     // Reading/writing functions
     static SharedMultiTaskNeuralLM* Read(const std::vector<DictPtr> & vocab, std::istream & in, dynet::Model & model);
-    void Write(std::ostream & out);
+    virtual void Write(std::ostream & out);
 
     // Information functions
     static std::string ModelID() { return "sharedmultitasknlm"; }
@@ -72,6 +72,7 @@ public:
 
     // Setters
     void SetVocabulary(int sourceIndex, int targetIndex) {current_voc_ = sourceIndex; p_wr_W_ = ps_wr_W_[current_voc_];vocab_ = vocabs_[current_voc_];softmax_ = softmaxes_[current_voc_];vocab_ = vocabs_[current_voc_];};
+
 
 
 protected:

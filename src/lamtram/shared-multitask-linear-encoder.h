@@ -34,8 +34,9 @@ public:
 
     // Reading/writing functions
     static SharedMultiTaskLinearEncoder* Read(std::istream & in, dynet::Model & model);
-    void Write(std::ostream & out);
+    virtual void Write(std::ostream & out);
 
+    static std::string ModelID() { return "sharedmultitasklinearencoder"; }
 
     // Accessors
     int GetVocabSize() const { std::cerr << "Get VocabSize not supported for multi-task" << std::endl; exit(-1); }

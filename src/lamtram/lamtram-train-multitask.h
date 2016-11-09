@@ -2,7 +2,7 @@
 
 #include <lamtram/sentence.h>
 #include <lamtram/dict-utils.h>
-#include <lamtram/encoder-attentional.h>
+#include <lamtram/multitask-encoder-attentional.h>
 #include <lamtram/multitask-model.h>
 #include <dynet/tensor.h>
 #include <boost/program_options.hpp>
@@ -33,22 +33,20 @@ public:
     void CreateSharedModel(std::vector<DictPtr> & vocab_src,
                             std::vector<DictPtr> & vocab_trg, 
                             NeuralLMPtr & decoder, 
-                            std::shared_ptr<EncoderAttentional> & encatt, 
+                            std::shared_ptr<MultiTaskEncoderAttentional> & encatt, 
                             std::vector<MultiTaskModelPtr> & mtmodels,
                             std::shared_ptr<dynet::Model> model);
 
     // Bilingual maximum likelihood training
     template<class ModelType, class OutputType>
-    void BilingualTraining(const std::vector<Sentence> & train_src,
-                           const std::vector<OutputType> & train_trg,
-                           const std::vector<OutputType> & train_cache,
-                           const std::vector<float> & train_weights,
-                           const std::vector<Sentence> & dev_src,
-                           const std::vector<OutputType> & dev_trg,
+    void BilingualTraining(const std::vector<std::vector<Sentence> >& train_src,
+                           const std::vector<std::vector<OutputType> >& train_trg,
+                           const std::vector<std::vector<OutputType> >& train_cache,
+                           const std::vector<std::vector<float> > & train_weights,
+                           const std::vector<std::vector<Sentence> >& dev_src,
+                           const std::vector<std::vector<OutputType> >& dev_trg,
                            const std::vector<DictPtr> & vocab_src,
                            const std::vector<DictPtr> & vocab_trg,
-                           const std::vector <int> & train_src_voc_ids,
-                           const std::vector <int> & train_trg_voc_ids,
                            const std::vector <MultiTaskModelPtr> & mtmodels,
                            dynet::Model & mod,
                            ModelType & encdec);
@@ -90,8 +88,8 @@ protected:
     float scheduled_samp_, dropout_;
     std::string model_in_file_, model_out_file_;
     std::vector<std::string> train_files_trg_, train_files_src_, train_files_weights_;
-    std::vector<int> voc_trg_,voc_src_;
-    std::string dev_file_trg_, dev_file_src_;
+    std::vector<int> voc_trg_,voc_src_,dev_voc_trg_,dev_voc_src_;
+    std::vector<std::string> dev_files_trg_, dev_files_src_;
     std::string softmax_sig_;
 
     std::vector<std::string> wildcards_;
