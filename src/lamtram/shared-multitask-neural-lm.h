@@ -71,7 +71,7 @@ public:
     SoftmaxBase & GetSoftmax() { std::cerr << "Not supported since changing" << std::endl; exit(-1); return *softmax_; }
 
     // Setters
-    void SetVocabulary(int sourceIndex, int targetIndex) {current_voc_ = sourceIndex; p_wr_W_ = ps_wr_W_[current_voc_];vocab_ = vocabs_[current_voc_];softmax_ = softmaxes_[current_voc_];vocab_ = vocabs_[current_voc_];};
+    void SetVocabulary(int sourceIndex, int targetIndex) {current_voc_ = targetIndex; p_wr_W_ = ps_wr_W_[current_voc_];vocab_ = vocabs_[current_voc_];softmax_ = softmaxes_[current_voc_];vocab_ = vocabs_[current_voc_];};
 
 
 
