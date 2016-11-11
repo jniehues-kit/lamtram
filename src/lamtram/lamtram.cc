@@ -7,6 +7,7 @@
 #include <lamtram/encoder-decoder.h>
 #include <lamtram/encoder-attentional.h>
 #include <lamtram/encoder-classifier.h>
+#include <lamtram/multitask-encoder-attentional.h>
 #include <lamtram/model-utils.h>
 #include <lamtram/string-util.h>
 #include <lamtram/ensemble-decoder.h>
@@ -54,6 +55,9 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
   vector<EncoderAttentionalPtr> encatts;
   vector<shared_ptr<dynet::Model> > models;
   DictPtr vocab_src, vocab_trg;
+  vector<MultiTaskModelPtr> mtmodels;
+  vector<DictPtr> vocabs_trg_temp;
+  vector<DictPtr> vocabs_src_temp;
 
   int max_minibatch_size = vm["minibatch_size"].as<int>();
   
@@ -83,6 +87,12 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
     } else if(type == "nlm") {
       NeuralLM * lm = ModelUtils::LoadMonolingualModel<NeuralLM>(file, mod_temp, vocab_trg_temp);
       lms.push_back(shared_ptr<NeuralLM>(lm));
+    } else if(type == "shared") {
+      EncoderAttentional * tm = ModelUtils::LoadMultitaskModel<MultiTaskEncoderAttentional>(file, mod_temp, vocabs_src_temp, vocabs_trg_temp,mtmodels);
+      encatts.push_back(shared_ptr<EncoderAttentional>(tm));
+      vocab_src_temp = vocabs_src_temp[vm["voc_src"].as<int>()];
+      vocab_trg_temp = vocabs_trg_temp[vm["voc_trg"].as<int>()];
+      for(int i = 0; i < mtmodels.size(); i++) {mtmodels[i]->SetVocabulary(vm["voc_src"].as<int>(),vm["voc_trg"].as<int>());};
     }
     // Sanity check
     if(vocab_trg.get() && vocab_trg_temp->get_words() != vocab_trg->get_words())
@@ -94,6 +104,7 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
     if(vocab_src_temp.get()) vocab_src = vocab_src_temp;
   }
   int vocab_size = vocab_trg->size();
+
 
   // Get the mapping table if necessary
   UniqueStringMappingPtr mapping;
@@ -150,7 +161,7 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
   }
 
 
-  
+
   // Perform operation
   string operation = vm["operation"].as<std::string>();
   string wpout_file = vm["wordprob_out"].as<std::string>();
@@ -384,6 +395,9 @@ int Lamtram::main(int argc, char** argv) {
     ("models_in", po::value<string>()->default_value(""), "Model files in format \"{encdec,encatt,nlm}=filename\" with encdec for encoder-decoders, encatt for attentional models, nlm for language models. When multiple, separate by a pipe.")
     ("operation", po::value<string>()->default_value("ppl"), "Operations (ppl: measure perplexity, nbest: score n-best list, gen: generate most likely sentence, samp: sample sentences randomly)")
     ("sent_range", po::value<string>()->default_value(""), "Optionally specify a comma-delimited range on how many sentences to process")
+    ("max_len", po::value<int>()->default_value(200), "Limit on the max length of sentences")
+    ("voc_src", po::value<int>()->default_value(0), "Source vocabulary to use in multitask models")
+    ("voc_trg", po::value<int>()->default_value(0), "Target vocabulary to use in multitask models")
     ("max_len", po::value<int>()->default_value(200), "Limit on the max length of sentences")
     ("src_in", po::value<string>()->default_value("-"), "File to read the source from, if any")
     ("length_file", po::value<string>()->default_value(""), "File to read the fixed length of every output sentence")
