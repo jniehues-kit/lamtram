@@ -11,6 +11,7 @@ class LLStats {
 public:
     LLStats(const LLStats & rhs) : vocab_(rhs.vocab_), words_(rhs.words_), unk_(rhs.unk_), loss_(rhs.loss_), is_likelihood_(rhs.is_likelihood_) { }
     LLStats(int vocab) : vocab_(vocab), words_(0), unk_(0), correct_(0), loss_(0.0), is_likelihood_(true) { }
+    LLStats() : vocab_(1), words_(0), unk_(0), correct_(0), loss_(0.0), is_likelihood_(true) { }
 
     LLStats & operator+=(const LLStats & rhs) {
         words_ += rhs.words_;

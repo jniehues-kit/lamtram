@@ -27,7 +27,7 @@ SharedMultiTaskNeuralLM::SharedMultiTaskNeuralLM(const vector<DictPtr> & vocabs,
   ps_wr_W_.push_back(p_wr_W_);
   softmaxes_.push_back(softmax_);
   for(int i = 1; i < vocabs_.size(); i++) {
-    ps_wr_W_.push_back(model.add_lookup_parameters(vocabs[i]->size(), {(unsigned int)wordrep_size})); 
+    ps_wr_W_.push_back(model.add_lookup_parameters(vocabs[i]->size(), {(unsigned int)wordrep_size_})); 
 
     // Create the softmax
     int numberOfEncoder = 2;
@@ -52,7 +52,7 @@ SharedMultiTaskNeuralLM::SharedMultiTaskNeuralLM(const vector<DictPtr> & vocabs,
   ps_wr_W_.push_back(p_wr_W_);
   softmaxes_.push_back(softmax_);
   for(int i = 1; i < vocabs_.size(); i++) {
-    ps_wr_W_.push_back(model.add_lookup_parameters(vocabs[i]->size(), {(unsigned int)wordrep_size})); 
+    ps_wr_W_.push_back(model.add_lookup_parameters(vocabs[i]->size(), {(unsigned int)wordrep_size_})); 
 
     // Create the softmax
     int numberOfEncoder = 2;

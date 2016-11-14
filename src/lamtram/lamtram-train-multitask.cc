@@ -121,7 +121,7 @@ int LamtramTrainMultitask::main(int argc, char** argv) {
   try { dev_files_trg_ = TokenizeWildcarded(vm_["dev_trg"].as<string>(), wildcards_, "|"); } catch(std::exception & e) { }
   std::vector<std::string> dev_voc_trg;
   try { dev_voc_trg = TokenizeWildcarded(vm_["dev_voc_trg"].as<string>(), wildcards_, "|"); } catch(std::exception & e) { }
-  for(int i = 0; i < voc_trg.size(); i++) dev_voc_trg_.push_back(atoi(dev_voc_trg[i].c_str()));
+  for(int i = 0; i < dev_voc_trg.size(); i++) dev_voc_trg_.push_back(atoi(dev_voc_trg[i].c_str()));
   try { model_out_file_ = vm_["model_out"].as<string>(); } catch(std::exception & e) { }
   if(!train_files_trg_.size())
     THROW_ERROR("Must specify a training file with --train_trg");
@@ -136,7 +136,7 @@ int LamtramTrainMultitask::main(int argc, char** argv) {
   try { dev_files_src_ = TokenizeWildcarded(vm_["dev_src"].as<string>(), wildcards_, "|"); } catch(std::exception & e) { }
   std::vector<std::string> dev_voc_src;
   try { dev_voc_src = TokenizeWildcarded(vm_["dev_voc_src"].as<string>(), wildcards_, "|"); } catch(std::exception & e) { }
-  for(int i = 0; i < voc_src.size(); i++) dev_voc_src_.push_back(atoi(dev_voc_src[i].c_str()));
+  for(int i = 0; i < dev_voc_src.size(); i++) dev_voc_src_.push_back(atoi(dev_voc_src[i].c_str()));
   try {
     string train_weights_string = vm_["train_weights"].as<string>();
     if (train_weights_string != "")
@@ -364,14 +364,14 @@ void LamtramTrainMultitask::TrainEncAtt() {
   if(dev_files_trg_.size())  {
     for(size_t i = 0; i < dev_files_trg_.size(); i++) {
       vector<Sentence> dev;
-      LoadFile(dev_files_trg_[i], true, *(vocab_trg[0]), dev);
+      LoadFile(dev_files_trg_[i], true, *(vocab_trg[dev_voc_trg_[i]]), dev);
       dev_trg.push_back(dev);
     }
   }
   if(dev_files_src_.size()) {
     for(size_t i = 0; i < dev_files_src_.size(); i++) {
       vector<Sentence> dev;
-      LoadFile(dev_files_src_[i], false, *(vocab_src[0]), dev);
+      LoadFile(dev_files_src_[i], false, *(vocab_src[dev_voc_src_[i]]), dev);
       dev_src.push_back(dev);
     }
   }
@@ -475,8 +475,9 @@ void LamtramTrainMultitask::BilingualTraining(const vector<vector<Sentence> > & 
   std::shuffle(train_ids.begin(), train_ids.end(), *dynet::rndeng);
   while(true) {
     // Start the training
-    LLStats train_ll(vocab_trg.size()), dev_ll(vocab_trg.size());
-    train_ll.is_likelihood_ = is_likelihood; dev_ll.is_likelihood_ = is_likelihood;
+    map<pair<int,int>,LLStats> train_lls,dev_lls;
+    //LLStats train_ll(vocab_trg.size()), dev_ll(vocab_trg.size());
+    //train_ll.is_likelihood_ = is_likelihood; dev_ll.is_likelihood_ = is_likelihood;
     Timer time;
     encdec.SetDropout(dropout_);
     for(int curr_sent_loc = 0; curr_sent_loc < eval_every_; ) {
@@ -489,6 +490,7 @@ void LamtramTrainMultitask::BilingualTraining(const vector<vector<Sentence> > & 
         ++epoch;
         if(epoch >= epochs_) return;
       }
+      for(int j = 0; j < mtmodels.size(); j++) {mtmodels[j]->SetVocabulary(train_src_voc_ids_minibatch[train_ids[loc]],train_trg_voc_ids_minibatch[train_ids[loc]]);};
       dynet::ComputationGraph cg;
       encdec.NewGraph(cg);
       // encdec.BuildSentGraph(train_src[train_ids[loc]], train_trg[train_ids[loc]], train_cache[train_ids[loc]], true, cg, train_ll);
@@ -496,7 +498,11 @@ void LamtramTrainMultitask::BilingualTraining(const vector<vector<Sentence> > & 
         float val = (epoch_frac-scheduled_samp_)/scheduled_samp_;
         samp_prob = 1/(1+exp(val));
       }
-      for(int j = 0; j < mtmodels.size(); j++) {mtmodels[j]->SetVocabulary(train_src_voc_ids_minibatch[train_ids[loc]],train_trg_voc_ids_minibatch[train_ids[loc]]);};
+      pair<int,int> set = make_pair(train_src_voc_ids_minibatch[train_ids[loc]],train_trg_voc_ids_minibatch[train_ids[loc]]);
+      if(train_lls.find(set) == train_lls.end()) {
+          train_lls[set] = LLStats(vocab_trg[train_trg_voc_ids_minibatch[train_ids[loc]]]->size());
+          train_lls[set].is_likelihood_ = is_likelihood;
+        }
       dynet::expr::Expression loss_exp = encdec.BuildSentGraph(
           train_src_minibatch[train_ids[loc]],
           train_trg_minibatch[train_ids[loc]],
@@ -505,19 +511,22 @@ void LamtramTrainMultitask::BilingualTraining(const vector<vector<Sentence> > & 
           samp_prob,
           true,
           cg,
-          train_ll);
+          train_lls[set]);
       sent_loc += train_trg_minibatch[train_ids[loc]].size();
       curr_sent_loc += train_trg_minibatch[train_ids[loc]].size();
       epoch_frac += 1.f/train_ids.size();
       // cg.PrintGraphviz();
-      train_ll.loss_ += as_scalar(cg.incremental_forward(loss_exp));
+      train_lls[set].loss_ += as_scalar(cg.incremental_forward(loss_exp));
       cg.backward(loss_exp);
       trainer->update(learning_scale);
       ++loc;
       if(sent_loc / 100 != last_print || curr_sent_loc >= eval_every_ || epochs_ == epoch) {
         last_print = sent_loc / 100;
         float elapsed = time.Elapsed();
-        cerr << "Epoch " << epoch+1 << " sent " << sent_loc << ": " << train_ll.PrintStats() << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << train_ll.words_/elapsed << " w/s)" << endl;
+        dynet::real loss;
+        for (auto& e  : train_lls) {
+          cerr << "Epoch " << epoch+1 << " sent " << sent_loc  << " set " << e.first << ": " << e.second.PrintStats() << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << e.second.words_/elapsed << " w/s)" << endl;
+        }
         if(epochs_ == epoch) break;
       }
     }
@@ -529,13 +538,23 @@ void LamtramTrainMultitask::BilingualTraining(const vector<vector<Sentence> > & 
       for(int i : boost::irange(0, (int)dev_src_minibatch.size())) {
         dynet::ComputationGraph cg;
         for(int j = 0; j < mtmodels.size(); j++) {mtmodels[j]->SetVocabulary(dev_src_voc_ids_minibatch[i],dev_trg_voc_ids_minibatch[i]);};
+        pair<int,int> set = make_pair(dev_src_voc_ids_minibatch[i],dev_trg_voc_ids_minibatch[i]);
+        if(dev_lls.find(set) == dev_lls.end()) {
+          dev_lls[set] = LLStats(vocab_trg[dev_trg_voc_ids_minibatch[i]]->size());
+          dev_lls[set].is_likelihood_ = is_likelihood;
+        }
         encdec.NewGraph(cg);
         // encdec.BuildSentGraph(dev_src[i], dev_trg[i], empty_cache, false, cg, dev_ll);
-        dynet::expr::Expression loss_exp = encdec.BuildSentGraph(dev_src_minibatch[i], dev_trg_minibatch[i], empty_cache, nullptr, 0.f, false, cg, dev_ll);
-        dev_ll.loss_ += as_scalar(cg.incremental_forward(loss_exp));
+        dynet::expr::Expression loss_exp = encdec.BuildSentGraph(dev_src_minibatch[i], dev_trg_minibatch[i], empty_cache, nullptr, 0.f, false, cg, dev_lls[set]);
+        dev_lls[set].loss_ += as_scalar(cg.incremental_forward(loss_exp));
       }
       float elapsed = time.Elapsed();
-      cerr << "Epoch " << epoch+1 << " dev: " << dev_ll.PrintStats() << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << dev_ll.words_/elapsed << " w/s)" << endl;
+      dynet::real loss;
+      for (auto& e  : dev_lls) {
+        cerr << "Epoch " << epoch+1 << " set:" << e.first << " dev: " << e.second.PrintStats() << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << e.second.words_/elapsed << " w/s)" << endl;
+        loss += e.second.loss_;
+      }
+      cerr << "Epoch " << epoch+1 << " All devs: " << loss << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed  << endl;
     }
     // Adjust the learning rate
     trainer->update_epoch();
@@ -543,7 +562,16 @@ void LamtramTrainMultitask::BilingualTraining(const vector<vector<Sentence> > & 
     // Check the learning rate
     if(last_loss != last_loss)
       THROW_ERROR("Likelihood is not a number, dying...");
-    dynet::real my_loss = do_dev ? dev_ll.loss_ : train_ll.loss_;
+    dynet::real my_loss;
+    if(do_dev) {
+      for (auto& e  : dev_lls) {
+        my_loss += e.second.loss_;
+      }
+    }else {
+      for (auto& e  : train_lls) {
+        my_loss += e.second.loss_;
+      }
+    }
     if(my_loss > last_loss)
       learning_scale *= rate_decay_;
     last_loss = my_loss;
