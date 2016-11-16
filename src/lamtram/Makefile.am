@@ -49,7 +49,9 @@ LIBCPP = \
     lstm-cond.cc \
     multitask-encoder-attentional.cc \
     shared-multitask-linear-encoder.cc \
-    shared-multitask-neural-lm.cc
+    shared-multitask-neural-lm.cc \
+    separate-multitask-linear-encoder.cc \
+    separate-multitask-neural-lm.cc
 
 lamtramincludedir = $(includedir)/lamtram
 lamtraminclude_HEADERS = \
@@ -104,7 +106,9 @@ lamtraminclude_HEADERS = \
     lstm-cond.h \
     multitask-encoder-attentional.h \
     shared-multitask-linear-encoder.h \
-    shared-multitask-neural-lm.h
+    shared-multitask-neural-lm.h \
+    separate-multitask-linear-encoder.h \
+    separate-multitask-neural-lm.h
 
 AM_CXXFLAGS = $(BOOST_CPPFLAGS) $(EIGEN_CPPFLAGS) $(DYNET_CPPFLAGS) $(OPENMP_CXXFLAGS) -I$(srcdir)/..
 

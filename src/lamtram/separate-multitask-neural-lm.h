@@ -25,12 +25,12 @@ class ExternCalculator;
 typedef std::shared_ptr<ExternCalculator> ExternCalculatorPtr;
 
 // A class for feed-forward neural network LMs
-class SharedMultiTaskNeuralLM : public NeuralLM , public MultiTaskModel{
+class SeparateMultiTaskNeuralLM : public NeuralLM , public MultiTaskModel{
     friend class EncoderAttentional;
 
 public:
 
-    // Create a new SharedMultiTaskNeuralLM and add it to the existing model
+    // Create a new SeparateMultiTaskNeuralLM and add it to the existing model
     //   vocab: the vocabulary
     //   ngram_context: number of previous words to use (should be at least one)
     //   extern_context: The size in nodes of vector containing extern context
@@ -41,14 +41,14 @@ public:
     //   unk_id: The ID of unknown words.
     //   softmax_sig: A signature indicating the type of softmax to use
     //   model: The model in which to store the parameters.
-    SharedMultiTaskNeuralLM(const std::vector<DictPtr> & vocab, int ngram_context, int extern_context,
+    SeparateMultiTaskNeuralLM(const std::vector<DictPtr> & vocab, int ngram_context, int extern_context,
              bool extern_feed,
              int wordrep_size, const BuilderSpec & hidden_spec, int unk_id,
              const std::string & softmax_sig, bool word_embedding_in_softmax,
              int attention_context, bool source_word_embedding_in_softmax, int source_word_embedding_in_softmax_context,
              dynet::Model & model);
 
-    SharedMultiTaskNeuralLM(const std::vector<DictPtr> & vocabs, int ngram_context, int extern_context,
+    SeparateMultiTaskNeuralLM(const std::vector<DictPtr> & vocabs, int ngram_context, int extern_context,
              bool extern_feed,
              int wordrep_size, const BuilderSpec & hidden_spec, int unk_id,
              const std::string & softmax_sig,bool word_embedding_in_softmax,
@@ -56,25 +56,30 @@ public:
              ExternCalculatorPtr & att,
              dynet::Model & model);
 
-    ~SharedMultiTaskNeuralLM() { }
+    ~SeparateMultiTaskNeuralLM() { }
 
 
     // Reading/writing functions
-    static SharedMultiTaskNeuralLM* Read(const std::vector<DictPtr> & vocab, std::istream & in, dynet::Model & model);
+    static SeparateMultiTaskNeuralLM* Read(const std::vector<DictPtr> & vocab, std::istream & in, dynet::Model & model);
     virtual void Write(std::ostream & out);
 
     // Information functions
-    static std::string ModelID() { return "sharedmultitasknlm"; }
+    static std::string ModelID() { return "separatemultitasknlm"; }
 
     // Accessors
     int GetVocabSize() const { std::cerr << "Not supported since changing" << std::endl; exit(-1); return 0; };
     SoftmaxBase & GetSoftmax() { std::cerr << "Not supported since changing" << std::endl; exit(-1); return *softmax_; }
-    
+
     virtual void SetDropout(float dropout);
 
-
     // Setters
-    void SetVocabulary(int sourceIndex, int targetIndex) {current_voc_ = targetIndex; p_wr_W_ = ps_wr_W_[current_voc_];vocab_ = vocabs_[current_voc_];softmax_ = softmaxes_[current_voc_];vocab_ = vocabs_[current_voc_];};
+    void SetVocabulary(int sourceIndex, int targetIndex) {current_voc_ = targetIndex; 
+                p_wr_W_ = ps_wr_W_[current_voc_];
+                vocab_ = vocabs_[current_voc_];
+                softmax_ = softmaxes_[current_voc_];
+                vocab_ = vocabs_[current_voc_];
+                builder_ = builders_[current_voc_]; 
+                if(cond_builders_.size() > 0){cond_builder_ =cond_builders_[current_voc_];}};
 
 
 
@@ -92,8 +97,13 @@ protected:
     
     int current_voc_;
 
+    // The RNN builder
+    std::vector<BuilderPtr> builders_;
+    std::vector<CondBuilderPtr> cond_builders_;
+
+
 };
 
-typedef std::shared_ptr<SharedMultiTaskNeuralLM> SharedMultiTaskNeuralLMPtr;
+typedef std::shared_ptr<SeparateMultiTaskNeuralLM> SeparateMultiTaskNeuralLMPtr;
 
 }

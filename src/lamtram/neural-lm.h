@@ -148,7 +148,7 @@ public:
     SoftmaxBase & GetSoftmax() { return *softmax_; }
 
     // Setters
-    void SetDropout(float dropout);
+    virtual void SetDropout(float dropout);
     void SetAttention(ExternCalculatorPtr att);
 
 protected:

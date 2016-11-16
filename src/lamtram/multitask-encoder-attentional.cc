@@ -1,6 +1,8 @@
 #include <lamtram/multitask-encoder-attentional.h>
 #include <lamtram/shared-multitask-neural-lm.h>
 #include <lamtram/shared-multitask-linear-encoder.h>
+#include <lamtram/separate-multitask-neural-lm.h>
+#include <lamtram/separate-multitask-linear-encoder.h>
 #include <lamtram/macros.h>
 #include <lamtram/builder-factory.h>
 #include <dynet/model.h>
@@ -53,6 +55,12 @@ MultiTaskExternAttentional* MultiTaskExternAttentional::Read(std::istream & in, 
       mtmodels.push_back(ptr);
       encoders.push_back(ptr);
     }
+  }else if(encoder_type == SeparateMultiTaskLinearEncoder::ModelID()) {
+    while(num_encoders-- > 0) {
+      SeparateMultiTaskLinearEncoderPtr ptr(SeparateMultiTaskLinearEncoder::Read(in, model));
+      mtmodels.push_back(ptr);
+      encoders.push_back(ptr);
+    }
   }else {
     THROW_ERROR("Unknown encoder type:" << encoder_type << endl << line);
   }
@@ -87,6 +95,11 @@ MultiTaskEncoderAttentional* MultiTaskEncoderAttentional::Read(const vector<Dict
   if(decoder_type == SharedMultiTaskNeuralLM::ModelID()) {
     SharedMultiTaskNeuralLM * slm = SharedMultiTaskNeuralLM::Read(vocab_trg, in, model);
     mtmodels.push_back(SharedMultiTaskNeuralLMPtr(slm));
+    NeuralLM * lm = slm;
+    decoder.reset(lm);
+  }else if(decoder_type == SeparateMultiTaskNeuralLM::ModelID()) {
+    SeparateMultiTaskNeuralLM * slm = SeparateMultiTaskNeuralLM::Read(vocab_trg, in, model);
+    mtmodels.push_back(SeparateMultiTaskNeuralLMPtr(slm));
     NeuralLM * lm = slm;
     decoder.reset(lm);
   }else {

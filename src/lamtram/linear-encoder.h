@@ -57,7 +57,7 @@ public:
     const std::vector<dynet::expr::Expression> & GetWordEmbeddings() const { return word_embeddings_; }
 
     void SetReverse(bool reverse) { reverse_ = reverse; }
-    void SetDropout(float dropout);
+    virtual void SetDropout(float dropout);
 
 protected:
 

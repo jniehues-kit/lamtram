@@ -30,11 +30,12 @@ public:
     void TrainEncDec();
     void TrainEncAtt();
     void TrainEncCls();
-    void CreateSharedModel(std::vector<DictPtr> & vocab_src,
+    void CreateMultitaskModel(std::vector<DictPtr> & vocab_src,
                             std::vector<DictPtr> & vocab_trg, 
                             NeuralLMPtr & decoder, 
                             std::shared_ptr<MultiTaskEncoderAttentional> & encatt, 
                             std::vector<MultiTaskModelPtr> & mtmodels,
+                            std::string model_type,
                             std::shared_ptr<dynet::Model> model);
 
     // Bilingual maximum likelihood training
