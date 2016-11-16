@@ -51,6 +51,61 @@ LIBCPP = \
     shared-multitask-linear-encoder.cc \
     shared-multitask-neural-lm.cc
 
+lamtramincludedir = $(includedir)/lamtram
+lamtraminclude_HEADERS = \
+    lamtram-train.h \
+    lamtram-train-multitask.h \
+    lamtram.h \
+    ensemble-decoder.h \
+    ensemble-classifier.h \
+    neural-lm.h \
+    linear-encoder.h \
+    encoder-decoder.h \
+    encoder-attentional.h \
+    encoder-classifier.h \
+    timer.h \
+    macros.h \
+    mapping.h \
+    classifier.h \
+    builder-factory.h \
+    model-utils.h \
+    counts.h \
+    input-file-stream.h \
+    loss-stats.h \
+    ll-stats.h \
+    sentence.h \
+    softmax-full.h \
+    softmax-multilayer.h \
+    softmax-hinge.h \
+    softmax-mod.h \
+    softmax-diff.h \
+    softmax-class.h \
+    softmax-factory.h \
+    dict-utils.h \
+    dist-base.h \
+    dist-factory.h \
+    dist-ngram.h \
+    dist-one-hot.h \
+    dist-train.h \
+    dist-uniform.h \
+    dist-unk.h \
+    eval-measure-loader.h \
+    eval-measure-bleu.h \
+    eval-measure-extern.h \
+    eval-measure-ribes.h \
+    eval-measure-wer.h \
+    eval-measure-interp.h \
+    eval-measure-charf.h \
+    eval-measure-char.h \
+    eval-measure-fscore.h \
+    eval-measure.h \
+    gru-cond.h \
+    rnn-cond.h \
+    lstm-cond.h \
+    multitask-encoder-attentional.h \
+    shared-multitask-linear-encoder.h \
+    shared-multitask-neural-lm.h
+
 AM_CXXFLAGS = $(BOOST_CPPFLAGS) $(EIGEN_CPPFLAGS) $(DYNET_CPPFLAGS) $(OPENMP_CXXFLAGS) -I$(srcdir)/..
 
 lib_LTLIBRARIES = liblamtram.la

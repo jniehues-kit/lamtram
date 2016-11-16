@@ -549,7 +549,7 @@ void LamtramTrainMultitask::BilingualTraining(const vector<vector<Sentence> > & 
         dev_lls[set].loss_ += as_scalar(cg.incremental_forward(loss_exp));
       }
       float elapsed = time.Elapsed();
-      dynet::real loss;
+      dynet::real loss = 0;
       for (auto& e  : dev_lls) {
         cerr << "Epoch " << epoch+1 << " set:" << e.first << " dev: " << e.second.PrintStats() << ", rate=" << learning_scale*learning_rate << ", time=" << elapsed << " (" << e.second.words_/elapsed << " w/s)" << endl;
         loss += e.second.loss_;
@@ -562,7 +562,7 @@ void LamtramTrainMultitask::BilingualTraining(const vector<vector<Sentence> > & 
     // Check the learning rate
     if(last_loss != last_loss)
       THROW_ERROR("Likelihood is not a number, dying...");
-    dynet::real my_loss;
+    dynet::real my_loss = 0;
     if(do_dev) {
       for (auto& e  : dev_lls) {
         my_loss += e.second.loss_;
