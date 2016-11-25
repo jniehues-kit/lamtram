@@ -136,3 +136,13 @@ void SeparateMultiTaskNeuralLM::SetDropout(float dropout) {
   }
   dropout_rate = dropout;
 }
+
+void SeparateMultiTaskNeuralLM::SetAttention(ExternCalculatorPtr att)
+{ 
+  if(hidden_spec_.type == "gru-cond" || hidden_spec_.type == "lstm-cond") {
+    for(auto& builder: builders_) {
+      GRUCONDBuilder * b = (GRUCONDBuilder *) builder.get();
+      b->SetAttention(att);
+    }
+  }
+}

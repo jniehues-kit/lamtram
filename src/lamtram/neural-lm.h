@@ -149,7 +149,7 @@ public:
 
     // Setters
     virtual void SetDropout(float dropout);
-    void SetAttention(ExternCalculatorPtr att);
+    virtual void SetAttention(ExternCalculatorPtr att);
 
 protected:
 

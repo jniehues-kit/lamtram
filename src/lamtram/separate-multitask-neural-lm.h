@@ -71,6 +71,7 @@ public:
     SoftmaxBase & GetSoftmax() { std::cerr << "Not supported since changing" << std::endl; exit(-1); return *softmax_; }
 
     virtual void SetDropout(float dropout);
+    virtual void SetAttention(ExternCalculatorPtr att);
 
     // Setters
     void SetVocabulary(int sourceIndex, int targetIndex) {current_voc_ = targetIndex; 

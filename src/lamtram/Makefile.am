@@ -65,6 +65,7 @@ lamtraminclude_HEADERS = \
     encoder-decoder.h \
     encoder-attentional.h \
     encoder-classifier.h \
+    extern-calculator.h \
     timer.h \
     macros.h \
     mapping.h \
@@ -76,6 +77,7 @@ lamtraminclude_HEADERS = \
     loss-stats.h \
     ll-stats.h \
     sentence.h \
+    softmax-base.h \
     softmax-full.h \
     softmax-multilayer.h \
     softmax-hinge.h \
@@ -104,6 +106,8 @@ lamtraminclude_HEADERS = \
     gru-cond.h \
     rnn-cond.h \
     lstm-cond.h \
+    string-util.h \
+    multitask-model.h \
     multitask-encoder-attentional.h \
     shared-multitask-linear-encoder.h \
     shared-multitask-neural-lm.h \
