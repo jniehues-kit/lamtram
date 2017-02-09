@@ -48,7 +48,9 @@ LIBCPP = \
     rnn-cond.cc \
     lstm-cond.cc \
     multitask-encoder-attentional.cc \
+    separate-multitask-encoder-attentional.cc \
     shared-multitask-linear-encoder.cc \
+    shared-wordembedding-multitask-linear-encoder.cc \
     shared-multitask-neural-lm.cc \
     separate-multitask-linear-encoder.cc \
     separate-multitask-neural-lm.cc
@@ -109,7 +111,9 @@ lamtraminclude_HEADERS = \
     string-util.h \
     multitask-model.h \
     multitask-encoder-attentional.h \
+    separate-multitask-encoder-attentional.h \
     shared-multitask-linear-encoder.h \
+    shared-wordembedding-multitask-linear-encoder.h \
     shared-multitask-neural-lm.h \
     separate-multitask-linear-encoder.h \
     separate-multitask-neural-lm.h

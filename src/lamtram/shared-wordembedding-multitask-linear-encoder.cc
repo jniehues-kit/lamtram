@@ -1,4 +1,4 @@
-#include <lamtram/separate-multitask-linear-encoder.h>
+#include <lamtram/shared-wordembedding-multitask-linear-encoder.h>
 #include <lamtram/macros.h>
 #include <lamtram/builder-factory.h>
 #include <lamtram/string-util.h>
@@ -18,13 +18,13 @@ SharedWordEmbeddingMultiTaskLinearEncoder::SharedWordEmbeddingMultiTaskLinearEnc
   wordrep_size_ = wordrep_size;
   unk_id_ = unk_id;
   reverse_ = false;
+  vocab_size_ = vocab_size[0];
   for(int i = 0; i < vocab_size.size(); i++) {
     // Hidden layers
     builders_.push_back(BuilderFactory::CreateBuilder(hidden_spec_, wordrep_size, model));
-    // Word representations
-    vocab_sizes_.push_back(vocab_size[i]);
-    ps_wr_W_.push_back(model.add_lookup_parameters(vocab_size[i], {(unsigned int)wordrep_size})); 
   }
+  // Word representations
+  p_wr_W_ = model.add_lookup_parameters(vocab_size_, {(unsigned int)wordrep_size}); 
   current_voc_ = 0;
 }
 
@@ -37,7 +37,7 @@ SharedWordEmbeddingMultiTaskLinearEncoder* SharedWordEmbeddingMultiTaskLinearEnc
     THROW_ERROR("Premature end of model file when expecting Neural LM");
   istringstream iss(line);
   iss >> version_id >> vocab_sizes >> wordrep_size >> hidden_spec >> unk_id >> reverse;
-  if(version_id != "separatemultilinenc_001")
+  if(version_id != "sharedwordembeddingmultilinenc_001")
     THROW_ERROR("Expecting a Neural LM of version linenc_001, but got something different:" << endl << line);
   vector<string> v = Tokenize(vocab_sizes,"|");
   vector<int> v_sizes;
@@ -47,11 +47,8 @@ SharedWordEmbeddingMultiTaskLinearEncoder* SharedWordEmbeddingMultiTaskLinearEnc
   return ret;
 }
 void SharedWordEmbeddingMultiTaskLinearEncoder::Write(std::ostream & out) {
-  out << "separatemultilinenc_001 ";
-  out << vocab_sizes_[0];
-  for (int i = 1; i < vocab_sizes_.size(); i++) {
-    out << "|" << vocab_sizes_[i];
-  }
+  out << "sharedwordembeddingmultilinenc_001 ";
+  out << vocab_size_;
   out << " " << wordrep_size_ << " " << hidden_spec_ << " " << unk_id_ << " " << (reverse_?"rev":"for") << endl;
 }
 

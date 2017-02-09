@@ -7,6 +7,7 @@
 #include <lamtram/encoder-classifier.h>
 #include <lamtram/shared-multitask-linear-encoder.h>
 #include <lamtram/separate-multitask-linear-encoder.h>
+#include <lamtram/separate-multitask-encoder-attentional.h>
 #include <lamtram/macros.h>
 #include <lamtram/timer.h>
 #include <lamtram/model-utils.h>
@@ -44,7 +45,7 @@ int LamtramTrainMultitask::main(int argc, char** argv) {
     ("dev_voc_src", po::value<string>()->default_value(""), "Source voc used for every development file")
     ("dev_voc_trg", po::value<string>()->default_value(""), "Source voc used for every development file")
     ("model_out", po::value<string>()->default_value(""), "File to write the model to")
-    ("model_type", po::value<string>()->default_value("shared"), "Model type (Attentional Model shared|separate|shared_separate|separate_shared)")
+    ("model_type", po::value<string>()->default_value("shared"), "Model type (Attentional Model shared|separate|shared_separate|separate_shared|separate_attention)")
     ("layer_size", po::value<int>()->default_value(512), "The default size of all hidden layers (word rep, hidden state, mlp attention, mlp softmax) if not specified otherwise")
     ("attention_feed", po::value<bool>()->default_value(true), "Whether to perform the input feeding of Luong et al.")
     ("attention_hist", po::value<string>()->default_value("none"), "How to pass information about the attention into the score function (none/sum)")
@@ -106,9 +107,9 @@ int LamtramTrainMultitask::main(int argc, char** argv) {
 
   // Sanity check for model type
   string model_type = vm_["model_type"].as<std::string>();
-  if( model_type != "shared" && model_type != "separate" && model_type != "shared_separate" && model_type != "separate_shared") {
+  if( model_type != "shared" && model_type != "separate" && model_type != "shared_separate" && model_type != "separate_shared" && model_type != "separate_attention") {
     cerr << desc << endl;
-    THROW_ERROR("Model type must be attentional model shared|separate|shared_separate|separate_shared");
+    THROW_ERROR("Model type must be attentional model shared|separate|shared_separate|separate_shared|separate_attention");
   }
   bool use_src = true;
 
@@ -267,7 +268,7 @@ inline void CreateMinibatches(const std::vector<std::vector<Sentence> >& train_s
 
 
 
-void LamtramTrainMultitask::CreateMultitaskModel(vector<DictPtr> & vocab_src,vector<DictPtr> & vocab_trg,NeuralLMPtr & decoder, std::shared_ptr<MultiTaskEncoderAttentional> & encatt,   
+void LamtramTrainMultitask::CreateMultitaskModel(vector<DictPtr> & vocab_src,vector<DictPtr> & vocab_trg,NeuralLMPtr & decoder, std::shared_ptr<EncoderAttentional> & encatt,   
       vector<std::shared_ptr<MultiTaskModel> > & mtmodels, string model_type, std::shared_ptr<dynet::Model> model) {
     vector<LinearEncoderPtr> encoders;
     vector<string> encoder_types;
@@ -298,7 +299,7 @@ void LamtramTrainMultitask::CreateMultitaskModel(vector<DictPtr> & vocab_src,vec
         if(spec == "rev") enc->SetReverse(true);
         encoders.push_back(enc);
         mtmodels.push_back(enc);
-      }else if(model_type == "separate" || model_type == "separate_shared") {
+      }else if(model_type == "separate" || model_type == "separate_shared" || model_type == "separate_attention") {
         SeparateMultiTaskLinearEncoderPtr enc(new SeparateMultiTaskLinearEncoder(source_vocab_sizes, wordrep, enc_layer_spec, vocab_src[0]->get_unk_id(), *model));
         if(spec == "rev") enc->SetReverse(true);
         encoders.push_back(enc);
@@ -313,32 +314,43 @@ void LamtramTrainMultitask::CreateMultitaskModel(vector<DictPtr> & vocab_src,vec
     string model_id;
     if(model_type == "shared" || model_type == "shared_separate") {
       model_id = SharedMultiTaskLinearEncoder::ModelID();
-    }else if(model_type == "separate" || model_type == "separate_shared") {
+    }else if(model_type == "separate" || model_type == "separate_shared" || model_type == "separate_attention") {
       model_id = SeparateMultiTaskLinearEncoder::ModelID();
     }
-    MultiTaskExternAttentionalPtr extatt(new MultiTaskExternAttentional(encoders, vm_["attention_type"].as<string>(), vm_["attention_hist"].as<string>(), dec_layer_spec.nodes, vm_["attention_lex"].as<string>(), vocab_src, vocab_trg, 
-    vm_["attention_context"].as<int>(), vm_["source_word_embedding_in_softmax"].as<bool>(), vm_["source_word_embedding_in_softmax_context"].as<int>(),model_id,*model));
+
+    ExternCalculatorPtr p;
+    ExternAttentionalPtr ext_att;
+
+    if(model_type == "separate_attention") {
+      ext_att.reset(new SeparateMultiTaskExternAttentional(encoders, vm_["attention_type"].as<string>(), vm_["attention_hist"].as<string>(), dec_layer_spec.nodes, vm_["attention_lex"].as<string>(), vocab_src, vocab_trg, 
+      vm_["attention_context"].as<int>(), vm_["source_word_embedding_in_softmax"].as<bool>(), vm_["source_word_embedding_in_softmax_context"].as<int>(),model_id,*model));
+      p.reset(ext_att.get());
+    }else {
+      ext_att.reset(new MultiTaskExternAttentional(encoders, vm_["attention_type"].as<string>(), vm_["attention_hist"].as<string>(), dec_layer_spec.nodes, vm_["attention_lex"].as<string>(), vocab_src, vocab_trg, 
+      vm_["attention_context"].as<int>(), vm_["source_word_embedding_in_softmax"].as<bool>(), vm_["source_word_embedding_in_softmax_context"].as<int>(),model_id,*model));
+      p.reset(ext_att.get());
+    }
+    int extern_context = enc_layer_spec.nodes * encoder_types.size();;
     if(dec_layer_spec.type == "gru-cond" || dec_layer_spec.type == "lstm-cond") {
-      ExternCalculatorPtr p = extatt;
       if(model_type == "shared" || model_type == "separate_shared") {
-        SharedMultiTaskNeuralLMPtr d(new SharedMultiTaskNeuralLM(vocab_trg, context_, dec_layer_spec.nodes, vm_["attention_feed"].as<bool>(), vm_["wordrep"].as<int>(), dec_layer_spec, vocab_trg[0]->get_unk_id(), softmax_sig_, vm_["word_embedding_in_softmax"].as<bool>(),
+        SharedMultiTaskNeuralLMPtr d(new SharedMultiTaskNeuralLM(vocab_trg, context_, extern_context, vm_["attention_feed"].as<bool>(), vm_["wordrep"].as<int>(), dec_layer_spec, vocab_trg[0]->get_unk_id(), softmax_sig_, vm_["word_embedding_in_softmax"].as<bool>(),
        vm_["attention_context"].as<int>(), vm_["source_word_embedding_in_softmax"].as<bool>(), vm_["source_word_embedding_in_softmax_context"].as<int>(),p,*model));
         decoder.reset(d.get());
         mtmodels.push_back(d);
-      }else if(model_type == "separate" || model_type == "shared_separate") {
-        SeparateMultiTaskNeuralLMPtr d(new SeparateMultiTaskNeuralLM(vocab_trg, context_, dec_layer_spec.nodes, vm_["attention_feed"].as<bool>(), vm_["wordrep"].as<int>(), dec_layer_spec, vocab_trg[0]->get_unk_id(), softmax_sig_, vm_["word_embedding_in_softmax"].as<bool>(),
+      }else if(model_type == "separate" || model_type == "shared_separate" || model_type == "separate_attention") {
+        SeparateMultiTaskNeuralLMPtr d(new SeparateMultiTaskNeuralLM(vocab_trg, context_, extern_context, vm_["attention_feed"].as<bool>(), vm_["wordrep"].as<int>(), dec_layer_spec, vocab_trg[0]->get_unk_id(), softmax_sig_, vm_["word_embedding_in_softmax"].as<bool>(),
        vm_["attention_context"].as<int>(), vm_["source_word_embedding_in_softmax"].as<bool>(), vm_["source_word_embedding_in_softmax_context"].as<int>(),p,*model));
         decoder.reset(d.get());
         mtmodels.push_back(d);
       }
     }else {
       if(model_type == "shared" || model_type == "separate_shared") {
-        SharedMultiTaskNeuralLMPtr d(new SharedMultiTaskNeuralLM(vocab_trg, context_, dec_layer_spec.nodes, vm_["attention_feed"].as<bool>(), vm_["wordrep"].as<int>(), dec_layer_spec, vocab_trg[0]->get_unk_id(), softmax_sig_, vm_["word_embedding_in_softmax"].as<bool>(),
+        SharedMultiTaskNeuralLMPtr d(new SharedMultiTaskNeuralLM(vocab_trg, context_, extern_context, vm_["attention_feed"].as<bool>(), vm_["wordrep"].as<int>(), dec_layer_spec, vocab_trg[0]->get_unk_id(), softmax_sig_, vm_["word_embedding_in_softmax"].as<bool>(),
          vm_["attention_context"].as<int>(), vm_["source_word_embedding_in_softmax"].as<bool>(), vm_["source_word_embedding_in_softmax_context"].as<int>(),*model));
         decoder.reset(d.get());
         mtmodels.push_back(d);
-      }else if(model_type == "separate" || model_type == "shared_separate") {
-        SeparateMultiTaskNeuralLMPtr d(new SeparateMultiTaskNeuralLM(vocab_trg, context_, dec_layer_spec.nodes, vm_["attention_feed"].as<bool>(), vm_["wordrep"].as<int>(), dec_layer_spec, vocab_trg[0]->get_unk_id(), softmax_sig_, vm_["word_embedding_in_softmax"].as<bool>(),
+      }else if(model_type == "separate" || model_type == "shared_separate" || model_type == "separate_attention") {
+        SeparateMultiTaskNeuralLMPtr d(new SeparateMultiTaskNeuralLM(vocab_trg, context_, extern_context, vm_["attention_feed"].as<bool>(), vm_["wordrep"].as<int>(), dec_layer_spec, vocab_trg[0]->get_unk_id(), softmax_sig_, vm_["word_embedding_in_softmax"].as<bool>(),
          vm_["attention_context"].as<int>(), vm_["source_word_embedding_in_softmax"].as<bool>(), vm_["source_word_embedding_in_softmax_context"].as<int>(),*model));
         decoder.reset(d.get());
         mtmodels.push_back(d);
@@ -346,10 +358,14 @@ void LamtramTrainMultitask::CreateMultitaskModel(vector<DictPtr> & vocab_src,vec
     }
     if(model_type == "shared" || model_type == "separate_shared") {
       model_id = SharedMultiTaskNeuralLM::ModelID();
-    }else if(model_type == "separate" || model_type == "shared_separate") {
+    }else if(model_type == "separate" || model_type == "shared_separate" || model_type == "separate_attention") {
       model_id = SeparateMultiTaskNeuralLM::ModelID();
     }
-    encatt.reset(new MultiTaskEncoderAttentional(extatt, decoder,model_id, *model));
+    if(model_type == "separate_attention") {
+      encatt.reset(new SeparateMultiTaskEncoderAttentional(ext_att, decoder,model_id,vocab_src.size(),vocab_trg.size(), *model));
+    }else {
+      encatt.reset(new MultiTaskEncoderAttentional(ext_att, decoder,model_id, *model));
+    }
 
 }
 
@@ -358,13 +374,18 @@ void LamtramTrainMultitask::TrainEncAtt() {
   // dynet::Dict
   vector<DictPtr> vocab_trg, vocab_src;
   std::shared_ptr<dynet::Model> model;
-  std::shared_ptr<MultiTaskEncoderAttentional> encatt;
+  std::shared_ptr<EncoderAttentional> encatt;
   vector<MultiTaskModelPtr> mtmodels;
   NeuralLMPtr decoder;
   
   
   if(model_in_file_.size()) {
-    encatt.reset(ModelUtils::LoadMultitaskModel<MultiTaskEncoderAttentional>(model_in_file_, model, vocab_src, vocab_trg,mtmodels));
+	  string type = vm_["model_type"].as<std::string>();
+	  if(type == "separate_attention") {
+		  encatt.reset(ModelUtils::LoadMultitaskModel<SeparateMultiTaskEncoderAttentional>(model_in_file_, model, vocab_src, vocab_trg,mtmodels));		  
+	  }else {
+		  encatt.reset(ModelUtils::LoadMultitaskModel<MultiTaskEncoderAttentional>(model_in_file_, model, vocab_src, vocab_trg,mtmodels));
+	  }
     decoder = encatt->GetDecoderPtr();
   } else {
     //vocab_src.reset(CreateNewDict());

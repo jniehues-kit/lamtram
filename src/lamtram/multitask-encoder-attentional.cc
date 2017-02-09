@@ -24,8 +24,7 @@ MultiTaskExternAttentional::MultiTaskExternAttentional(const std::vector<LinearE
                    const vector<DictPtr> & vocab_src, const vector<DictPtr> & vocab_trg,
                    int attention_context, bool source_word_embedding_in_softmax, int source_word_embedding_in_softmax_context, string encoder_type,
                    dynet::Model & mod): ExternAttentional(encoders,attention_type,attention_hist,state_size,lex_type,vocab_src[0],vocab_trg[0],attention_context,source_word_embedding_in_softmax,source_word_embedding_in_softmax_context,mod),encoder_type_(encoder_type) {
-                     
-                     
+
                    }
 
 

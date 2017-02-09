@@ -5,6 +5,7 @@
 #include <lamtram/encoder-attentional.h>
 #include <lamtram/encoder-classifier.h>
 #include <lamtram/multitask-encoder-attentional.h>
+#include <lamtram/separate-multitask-encoder-attentional.h>
 #include <lamtram/neural-lm.h>
 #include <dynet/model.h>
 #include <dynet/dict.h>
@@ -134,6 +135,17 @@ MultiTaskEncoderAttentional* ModelUtils::LoadMultitaskModel<MultiTaskEncoderAtte
                                                               vector<DictPtr> & vocab_src, vector<DictPtr> & vocab_trg,
                                                               std::vector<MultiTaskModelPtr> & mtmodels);
 
+template
+SeparateMultiTaskEncoderAttentional* ModelUtils::LoadMultitaskModel<SeparateMultiTaskEncoderAttentional>(std::istream & model_in,
+                                                              std::shared_ptr<dynet::Model> & mod,
+                                                              vector<DictPtr> & vocab_src, vector<DictPtr> & vocab_trg,
+                                                              std::vector<MultiTaskModelPtr> & mtmodels);
+
+template
+SeparateMultiTaskEncoderAttentional* ModelUtils::LoadMultitaskModel<SeparateMultiTaskEncoderAttentional>(const std::string & infile,
+                                                              std::shared_ptr<dynet::Model> & mod,
+                                                              vector<DictPtr> & vocab_src, vector<DictPtr> & vocab_trg,
+                                                              std::vector<MultiTaskModelPtr> & mtmodels);
 
 
 template

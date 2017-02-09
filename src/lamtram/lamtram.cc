@@ -8,6 +8,7 @@
 #include <lamtram/encoder-attentional.h>
 #include <lamtram/encoder-classifier.h>
 #include <lamtram/multitask-encoder-attentional.h>
+#include <lamtram/separate-multitask-encoder-attentional.h>
 #include <lamtram/model-utils.h>
 #include <lamtram/string-util.h>
 #include <lamtram/ensemble-decoder.h>
@@ -89,6 +90,12 @@ int Lamtram::SequenceOperation(const boost::program_options::variables_map & vm)
       lms.push_back(shared_ptr<NeuralLM>(lm));
     } else if(type == "shared") {
       EncoderAttentional * tm = ModelUtils::LoadMultitaskModel<MultiTaskEncoderAttentional>(file, mod_temp, vocabs_src_temp, vocabs_trg_temp,mtmodels);
+      encatts.push_back(shared_ptr<EncoderAttentional>(tm));
+      vocab_src_temp = vocabs_src_temp[vm["voc_src"].as<int>()];
+      vocab_trg_temp = vocabs_trg_temp[vm["voc_trg"].as<int>()];
+      for(int i = 0; i < mtmodels.size(); i++) {mtmodels[i]->SetVocabulary(vm["voc_src"].as<int>(),vm["voc_trg"].as<int>());};
+    } else if(type == "separate_attention") {
+      EncoderAttentional * tm = ModelUtils::LoadMultitaskModel<SeparateMultiTaskEncoderAttentional>(file, mod_temp, vocabs_src_temp, vocabs_trg_temp,mtmodels);
       encatts.push_back(shared_ptr<EncoderAttentional>(tm));
       vocab_src_temp = vocabs_src_temp[vm["voc_src"].as<int>()];
       vocab_trg_temp = vocabs_trg_temp[vm["voc_trg"].as<int>()];

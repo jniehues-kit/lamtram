@@ -36,21 +36,21 @@ public:
     static SharedWordEmbeddingMultiTaskLinearEncoder* Read(std::istream & in, dynet::Model & model);
     virtual void Write(std::ostream & out);
 
-    static std::string ModelID() { return "separatemultitasklinearencoder"; }
+    static std::string ModelID() { return "sharedwordembeddingmultitasklinearencoder"; }
 
     // Accessors
     int GetVocabSize() const { std::cerr << "Get VocabSize not supported for multi-task" << std::endl; exit(-1); }
     
-    void SetVocabulary(int sourceIndex, int targetIndex) {current_voc_ = sourceIndex; p_wr_W_ = ps_wr_W_[current_voc_];builder_ = builders_[current_voc_];};
+    void SetVocabulary(int sourceIndex, int targetIndex) {current_voc_ = sourceIndex; builder_ = builders_[current_voc_];};
 
     virtual void SetDropout(float dropout);
 
 protected:
 
-    std::vector<int> vocab_sizes_;
+    int vocab_size_;
 
     // Pointers to the parameters
-    std::vector<dynet::LookupParameter> ps_wr_W_; // Wordrep weights
+    dynet::LookupParameter ps_wr_W_; // Wordrep weights
 
     int current_voc_;
 
