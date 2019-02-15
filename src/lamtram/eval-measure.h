@@ -8,7 +8,7 @@
 #include <string>
 #include <sstream>
 #include <memory>
-
+#include <math.h>
 namespace lamtram {
 
 // An interface for holding stats for a particular evaluation measure

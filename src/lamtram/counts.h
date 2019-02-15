@@ -6,6 +6,7 @@
 #include <lamtram/dict-utils.h>
 #include <lamtram/hashes.h>
 #include <lamtram/training-data.h>
+#include <math.h>
 
 namespace dynet { class Dict; }
 
